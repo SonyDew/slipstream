@@ -5,4 +5,3 @@
 /backend/app/core/security.py @SonyDew
 /backend/app/core/ssrf.py @SonyDew
 /backend/app/services/auth.py @SonyDew
-/.github/workflows/ @SonyDew

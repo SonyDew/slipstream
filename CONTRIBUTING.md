@@ -68,7 +68,7 @@ anything. Full notes in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Before you open a pull request
 
-Everything below must pass. CI runs the same commands, so a local run saves a round trip.
+Everything below must pass locally before a pull request is opened.
 
 ```bash
 cd backend
@@ -87,9 +87,7 @@ New behaviour needs a test. Bug fixes need a test that fails before the fix. The
 suite is the project's safety net — it is currently 324 tests and should stay that way or
 grow.
 
-What each workflow gates, and which checks are advisory rather than blocking, is in
-[docs/GITHUB.md](docs/GITHUB.md). The endpoint contract you are changing against is in
-[docs/API.md](docs/API.md).
+The endpoint contract you are changing against is in [docs/API.md](docs/API.md).
 
 ---
 

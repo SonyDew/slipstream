@@ -329,9 +329,9 @@ sudo systemctl list-timers | grep certbot
 A renewed certificate that nginx has not reloaded is still the old certificate. Confirm the
 deploy hook exists.
 
-**Dependency advisories.** The `security.yml` workflow runs pip-audit, `npm audit`, CodeQL, a
-secret scan and Trivy weekly. On a fork, check the Actions summaries; the Python audit is
-advisory and will not fail the run, so it needs reading rather than trusting.
+**Dependency advisories.** Review Python and npm advisories regularly with `pip-audit` and
+`npm audit`. Container deployments should also be scanned with Trivy. Read every finding in
+context instead of treating a command's exit code as a complete security review.
 
 ---
 

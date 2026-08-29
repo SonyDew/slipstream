@@ -243,10 +243,9 @@ sudo apt-get update && sudo apt-get upgrade      # Ubuntu
 sudo dnf upgrade                                 # Oracle Linux
 ```
 
-Dependabot raises pull requests for the pinned Python, npm, Docker and Actions dependencies
-weekly. yt-dlp is deliberately **not** grouped with anything else — it updates constantly and
-each bump can change which formats a site reports, so it gets its own PR to review against
-the format-honesty tests.
+Review pinned Python, npm and Docker dependencies regularly. Update yt-dlp separately: it
+changes constantly and each bump can affect which formats a site reports, so test it against
+the format-honesty suite before updating other dependencies.
 
 ---
 

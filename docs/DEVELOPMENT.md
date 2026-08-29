@@ -15,8 +15,8 @@ Setting up, working on, and testing Slipstream locally.
 
 FFmpeg is technically optional and the app degrades honestly without it — MP3 options
 disappear, adaptive-only video rungs are hidden, and the analyze response explains why. But
-you cannot meaningfully test the download pipeline without it, and CI installs it
-deliberately so that CI exercises real behaviour rather than the degraded path.
+you cannot meaningfully test the download pipeline without it, so install it before testing
+real download behaviour.
 
 Check: `ffmpeg -version` and `ffprobe -version` must both resolve.
 
@@ -47,7 +47,7 @@ cp .env.example .env      # repo root, or backend/.env
 
 `.env.example` carries **names only, no values**, on purpose. A value in the example file
 gets committed and then copied into production by everyone following the quick start.
-`.github/workflows/security.yml` fails the build if a value appears there.
+Review changes to this file carefully and never commit real credentials.
 
 ---
 
@@ -100,8 +100,7 @@ credential with full write access.
 
 ## Checks
 
-Everything below must pass before a PR. They are the same commands CI runs, so there are no
-surprises waiting in the pipeline.
+Everything below must pass locally before a PR.
 
 ```bash
 cd backend
@@ -261,7 +260,8 @@ a rung the source lacks; never advertise an MP3 bitrate above the source.
 
 **Do not statically import `recharts` outside the lazy chart boundary.** recharts plus d3
 is the largest dependency in the tree; a static import lands it in the entry chunk and
-every visitor downloads it to view the home page. CI fails the build if it appears there.
+every visitor downloads it to view the home page. Inspect the production chunks after
+changing chart imports.
 
 ---
 

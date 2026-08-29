@@ -293,8 +293,8 @@ React 18 + TypeScript 5.7 + Vite 6 + Tailwind 3. `@/` aliases to `src/`.
 `charts` chunk, `react-router` into `router`, `lucide-react` into `icons`. recharts plus
 d3 is by far the largest dependency and it is only needed on the admin dashboard. A static
 import of it anywhere in the eager tree lands it in the entry chunk and every visitor
-downloads it to view the home page. `.github/workflows/frontend.yml` fails the build if
-that happens — it greps the entry chunk for `recharts`.
+downloads it to view the home page. Keep chart imports behind the existing lazy boundary
+and inspect the production build after dependency or routing changes.
 
 Note the ordering in `manualChunks`: `lucide-react` is checked *before* the generic
 `react` match, which would otherwise swallow it.
