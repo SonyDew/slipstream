@@ -10,9 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SonyDew/slipstream/actions/workflows/backend.yml"><img src="https://github.com/SonyDew/slipstream/actions/workflows/backend.yml/badge.svg" alt="Backend checks" /></a>
-  <a href="https://github.com/SonyDew/slipstream/actions/workflows/frontend.yml"><img src="https://github.com/SonyDew/slipstream/actions/workflows/frontend.yml/badge.svg" alt="Frontend checks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-c8ff35?labelColor=11130e" alt="AGPL-3.0-or-later" /></a>
+  <img src="https://img.shields.io/badge/tests-324%20passing-c8ff35?labelColor=11130e" alt="324 passing tests" />
   <img src="https://img.shields.io/badge/Python-3.11%2B-f4f2e9?labelColor=11130e" alt="Python 3.11 or newer" />
   <img src="https://img.shields.io/badge/Node-20%2B-f4f2e9?labelColor=11130e" alt="Node 20 or newer" />
 </p>
