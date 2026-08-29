@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Slipstream — Universal media downloader</title>
+    <meta
+      name="description"
+      content="Self-hosted downloader for publicly accessible media. Paste a link, see the qualities that genuinely exist, and get the file. No ads, no trackers."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Slipstream — Media in. Files out." />
+    <meta
+      property="og:description"
+      content="A precise, self-hosted downloader for publicly accessible media."
+    />
+    <meta property="og:image" content="/social-preview.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Updated at runtime by ThemeProvider so browser chrome matches the theme. -->
+    <meta name="theme-color" content="#f7f6f0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- Nothing here is public-facing on the open web by default, and the app
+         has no reason to appear in search results for a private instance. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Synchronous and same-origin: applies the stored theme before first
+         paint without weakening the production Content Security Policy. -->
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="max-width: 34rem; margin: 4rem auto; padding: 0 1.5rem; font-family: system-ui, sans-serif; line-height: 1.6">
+        <h1 style="font-size: 1.25rem">Slipstream needs JavaScript</h1>
+        <p>
+          The downloader analyses links and tracks job progress in the browser, so it
+          cannot run with scripting disabled. The JSON API remains available at
+          <code>/api</code>.
+        </p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

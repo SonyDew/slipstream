@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# Dependabot — keeps the pinned dependency set moving. security.yml reports what
+# is vulnerable; this is what actually raises the pull request.
+#
+# yt-dlp is deliberately not grouped with anything else: it updates constantly,
+# each bump can change extraction behaviour, and it deserves its own PR to
+# review against the format-honesty tests.
+# ---------------------------------------------------------------------------
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    labels: [dependencies, backend]
+    groups:
+      dev-tooling:
+        # ruff, mypy and pytest churn often and never affect runtime behaviour,
+        # so batching them keeps the queue readable.
+        dependency-type: development
+      fastapi-stack:
+        patterns: ['fastapi', 'starlette', 'uvicorn*', 'pydantic*']
+    # yt-dlp matches no group on purpose, so it arrives as its own pull request.
+    # Do not add it to a group: a bump can change which formats a site reports,
+    # and it needs reviewing against the format-honesty tests on its own.
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    labels: [dependencies, frontend]
+    groups:
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      build-tooling:
+        patterns: ['vite', '@vitejs/*', 'typescript', 'eslint*', '@typescript-eslint/*']
+      tailwind:
+        patterns: ['tailwindcss', 'postcss', 'autoprefixer']
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    labels: [dependencies, docker]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ['*']

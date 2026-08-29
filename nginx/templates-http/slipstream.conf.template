@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# Slipstream — server block for plain HTTP (no TLS).
+#
+# For a LAN or localhost deployment, or when TLS is terminated by something in
+# front of this nginx (a load balancer, Cloudflare, a tunnel). Mount this
+# directory at /etc/nginx/templates instead of nginx/templates:
+#
+#   - ./nginx/templates-http:/etc/nginx/templates:ro
+#
+# Do NOT use this on a public address with COOKIE_SECURE unset. The session
+# cookie would travel in clear text and anyone on the path could replay it.
+# ---------------------------------------------------------------------------
+
+upstream slipstream_app {
+    server ${SLIPSTREAM_UPSTREAM} max_fails=3 fail_timeout=15s;
+    keepalive 32;
+}
+
+server {
+    listen      80 default_server;
+    listen      [::]:80 default_server;
+    server_name ${SLIPSTREAM_DOMAIN} _;
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    limit_conn slipstream_conn 20;
+    proxy_max_temp_file_size 0;
+    root /dev/null;
+
+    location ~ ^/api/auth/(login|register|change-password)$ {
+        limit_req zone=slipstream_auth burst=5;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+    }
+
+    # See the TLS template for why buffering is off here.
+    location ~ ^/api/jobs/[^/]+/file$ {
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass          http://slipstream_app;
+        proxy_buffering     off;
+        proxy_request_buffering off;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+        limit_req           zone=slipstream_api burst=20 nodelay;
+        proxy_force_ranges  on;
+    }
+
+    location ^~ /api/health {
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass  http://slipstream_app;
+        access_log  off;
+    }
+
+    location ^~ /api/ {
+        limit_req zone=slipstream_api burst=20 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+    }
+
+    # add_header in a location replaces the inherited set, so the snippet is
+    # re-included alongside the cache header.
+    location ^~ /assets/ {
+        limit_req zone=slipstream_static burst=100 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+        include /etc/nginx/snippets/security-headers.conf;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        access_log off;
+    }
+
+    location / {
+        limit_req zone=slipstream_static burst=100 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+    }
+}

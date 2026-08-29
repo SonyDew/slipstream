@@ -1,0 +1,69 @@
+# Normalize line endings on commit, check out native. Prevents a Windows
+# checkout from turning every file in the tree into a diff on a Linux host.
+* text=auto
+
+# Shell scripts and unit files are consumed by Linux tooling that treats CRLF
+# as part of the shebang or value, so they stay LF everywhere.
+*.sh            text eol=lf
+*.bash          text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+docker-compose*.yml text eol=lf
+*.service       text eol=lf
+*.socket        text eol=lf
+*.timer         text eol=lf
+*.conf          text eol=lf
+
+# PowerShell and batch files are Windows-side; keep CRLF.
+*.ps1           text eol=crlf
+*.psm1          text eol=crlf
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+README_WINDOWS.txt text eol=crlf
+
+# Source and config
+*.py            text diff=python
+*.pyi           text diff=python
+*.ts            text
+*.tsx           text
+*.js            text
+*.jsx           text
+*.json          text
+*.css           text diff=css
+*.html          text diff=html
+*.md            text diff=markdown
+*.yml           text
+*.yaml          text
+*.toml          text
+*.cfg           text
+*.ini           text
+*.txt           text
+*.env.example   text
+
+# Binary — never diffed, never line-ending converted.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.webp          binary
+*.svg           text
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary
+*.mp4           binary
+*.mp3           binary
+*.webm          binary
+*.zip           binary
+*.gz            binary
+*.db            binary
+*.sqlite3       binary
+*.exe           binary
+*.dll           binary
+
+# Excluded from release archives and language statistics.
+/.github        export-ignore
+/docs           export-ignore
+PROJECT_HANDOFF.md export-ignore
+*.md            linguist-documentation

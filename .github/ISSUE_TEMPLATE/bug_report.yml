@@ -1,0 +1,101 @@
+name: Bug report
+description: Something behaves differently from how it is documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if a specific site stopped working, update yt-dlp first
+        (`docs/UPDATES.md`). Extraction breakage is almost always upstream and
+        a refresh fixes it without any change here.
+
+        **Do not report security vulnerabilities here.** Use a private advisory
+        instead — see `SECURITY.md`.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I updated yt-dlp and the problem persists.
+          required: true
+        - label: >-
+            The media I was downloading is publicly accessible — no login,
+            paywall, DRM, age gate or private account involved.
+          required: true
+        - label: I searched the existing issues.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as ...
+        2. Paste a URL from ...
+        3. Choose the 1080p option
+        4. The job fails at 40% with ...
+    validations:
+      required: true
+
+  - type: input
+    id: platform-site
+    attributes:
+      label: Which site
+      description: >-
+        The platform, not the URL. A full URL is fine if the problem depends on
+        the specific item, but the platform name is usually enough.
+      placeholder: YouTube / TikTok / a generic site
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How is it deployed
+      options:
+        - Docker (docker-compose.yml)
+        - Docker + nginx (Ubuntu)
+        - Docker + nginx (Oracle Cloud, arm64)
+        - Bare systemd (scripts/linux/install.sh)
+        - Windows (scripts/windows/setup.ps1)
+        - Development (uvicorn --reload + vite)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        From `/api/health`, or the image tag you pulled. Include the yt-dlp
+        version if the problem is extraction-related.
+      placeholder: '0.1.0, yt-dlp 2026.8.19'
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >-
+        From `data/logs/`, `docker compose logs app`, or
+        `journalctl -u slipstream`. **Redact URLs you would rather not publish,
+        and never paste a SECRET_KEY, cookie or session token.**
+      render: text
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Anything else
+      description: >-
+        Reverse proxy in front of it, CPU architecture, container resource
+        limits, whether ffmpeg is present, anything unusual about the setup.

@@ -1,0 +1,294 @@
+/* ==========================================================================
+   Slipstream design system
+
+   Colour is expressed as HSL channel triplets in CSS variables so that light
+   and dark themes swap by redefining variables, never by duplicating utility
+   classes. Tailwind consumes these through tailwind.config.js.
+   ========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm technical neutrals: closer to paper and machined aluminium than SaaS blue-grey. */
+    --background: 48 22% 96%;
+    --foreground: 72 12% 8%;
+
+    --card: 48 30% 99%;
+    --card-foreground: 72 12% 8%;
+
+    --popover: 48 30% 99%;
+    --popover-foreground: 72 12% 8%;
+
+    --muted: 48 13% 91%;
+    --muted-foreground: 60 5% 42%;
+
+    --accent: 68 31% 88%;
+    --accent-foreground: 72 12% 8%;
+
+    --border: 54 9% 82%;
+    --input: 54 9% 75%;
+
+    /* A single electric-lime signal colour. */
+    --primary: 74 76% 41%;
+    --primary-foreground: 72 20% 7%;
+    --brand-from: 74 76% 47%;
+    --brand-to: 74 76% 47%;
+
+    --secondary: 48 13% 91%;
+    --secondary-foreground: 72 12% 12%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 144 55% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 90% 45%;
+    --warning-foreground: 0 0% 100%;
+
+    --ring: 74 76% 41%;
+    --shadow-color: 72 18% 5%;
+
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 72 12% 7%;
+    --foreground: 48 17% 94%;
+
+    --card: 72 10% 10%;
+    --card-foreground: 48 17% 94%;
+
+    --popover: 72 10% 10%;
+    --popover-foreground: 48 17% 94%;
+
+    --muted: 72 7% 16%;
+    --muted-foreground: 50 7% 61%;
+
+    --accent: 72 8% 18%;
+    --accent-foreground: 48 17% 94%;
+
+    --border: 68 7% 22%;
+    --input: 68 7% 28%;
+
+    --primary: 75 89% 62%;
+    --primary-foreground: 72 20% 7%;
+    --brand-from: 75 89% 62%;
+    --brand-to: 75 89% 62%;
+
+    --secondary: 72 7% 16%;
+    --secondary-foreground: 48 17% 94%;
+
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 144 61% 51%;
+    --success-foreground: 72 20% 7%;
+
+    --warning: 36 92% 58%;
+    --warning-foreground: 224 30% 8%;
+
+    --ring: 75 89% 62%;
+    --shadow-color: 72 30% 1%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased;
+    scroll-behavior: smooth;
+    /* Reserve the scrollbar so opening a dialog does not shift the layout. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+    min-width: 320px;
+  }
+
+  /* A single, consistent focus treatment everywhere. Never remove the ring —
+     keyboard users depend on it. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Respect the OS reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  /* Slim, unobtrusive scrollbars that follow the theme. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-border bg-clip-content;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+
+  /* Kill the native number spinners and search decorations. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='search']::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+}
+
+@layer components {
+  /* Legacy brand helpers now resolve to the single signal colour. */
+  .text-gradient {
+    color: hsl(var(--primary));
+  }
+
+  .bg-brand-gradient {
+    background: hsl(var(--primary));
+  }
+
+  /* Frosted surface used by the sticky header and overlays. */
+  .glass {
+    @apply bg-background/90 backdrop-blur-md;
+  }
+
+  .hero-stage {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .hero-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: linear-gradient(hsl(var(--border) / 0.48) 1px, transparent 1px);
+    background-size: 100% 5rem;
+    mask-image: linear-gradient(to bottom, #000, transparent 82%);
+  }
+
+  .stream-lines {
+    background-image: repeating-linear-gradient(
+      100deg,
+      transparent 0,
+      transparent 28px,
+      hsl(var(--foreground) / 0.11) 29px,
+      transparent 30px
+    );
+    mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent);
+  }
+
+  .signal-dot {
+    @apply inline-block size-2 rounded-full bg-primary;
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.13);
+  }
+
+  /* Skeleton shimmer. */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+  }
+
+  /* Prose defaults for the documentation page, tuned to the design tokens
+     rather than pulling in the typography plugin. */
+  .prose-doc {
+    @apply text-[0.9375rem] leading-7 text-muted-foreground;
+  }
+  .prose-doc h2 {
+    @apply mb-3 mt-10 scroll-mt-24 text-xl font-semibold tracking-tight text-foreground;
+  }
+  .prose-doc h3 {
+    @apply mb-2 mt-7 scroll-mt-24 text-base font-semibold text-foreground;
+  }
+  .prose-doc p {
+    @apply mb-4;
+  }
+  .prose-doc ul {
+    @apply mb-4 space-y-2 pl-5;
+  }
+  .prose-doc li {
+    @apply list-disc marker:text-muted-foreground/50;
+  }
+  .prose-doc a {
+    @apply font-medium text-foreground underline decoration-primary/70 decoration-2 underline-offset-4 transition hover:decoration-primary;
+  }
+  .prose-doc code {
+    @apply rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8125rem] text-foreground;
+  }
+  .prose-doc pre {
+    @apply mb-4 overflow-x-auto rounded-lg border bg-muted/50 p-4 text-[0.8125rem];
+  }
+  .prose-doc pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-doc strong {
+    @apply font-semibold text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Wide content (tables, code) must scroll inside its own container so the
+     page body never scrolls sideways. */
+  .scroll-x {
+    @apply -mx-1 overflow-x-auto px-1;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Stagger children on entrance. */
+  .stagger > * {
+    animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.06s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.1s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.14s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.18s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.22s; }
+}

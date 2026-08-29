@@ -1,0 +1,2 @@
+# ACME http-01 challenge webroot for the Docker nginx overlay.
+# certbot writes .well-known/acme-challenge/ here; nothing else belongs in it.

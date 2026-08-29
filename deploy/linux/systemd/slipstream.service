@@ -1,0 +1,109 @@
+# ---------------------------------------------------------------------------
+# Slipstream — systemd unit template.
+#
+# Placeholders are substituted by scripts/linux/install.sh:
+#   @INSTALL_DIR@   installation root (default /opt/slipstream)
+#   @SERVICE_USER@  system account to run as (default slipstream)
+#   @BIND_HOST@     listen address (default 127.0.0.1)
+#   @PORT@          listen port (default 8000)
+#
+# To edit it after installation, use `systemctl edit slipstream` rather than
+# modifying /etc/systemd/system/slipstream.service — a re-run of the installer
+# overwrites that file.
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Slipstream media downloader
+Documentation=https://github.com/OWNER/slipstream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=@SERVICE_USER@
+Group=@SERVICE_USER@
+WorkingDirectory=@INSTALL_DIR@/backend
+
+EnvironmentFile=@INSTALL_DIR@/.env
+
+# A single worker on purpose. The job queue and the cleanup loop live in the
+# process, so a second worker would have its own invisible queue: a job
+# submitted to one would not be found by the other. Scale with
+# MAX_CONCURRENT_DOWNLOADS instead.
+ExecStart=@INSTALL_DIR@/backend/.venv/bin/python -m uvicorn app.main:app \
+    --host @BIND_HOST@ \
+    --port @PORT@ \
+    --workers 1 \
+    --proxy-headers \
+    --timeout-keep-alive 75 \
+    --no-server-header
+
+# SIGINT is what uvicorn treats as a graceful shutdown; the default SIGTERM
+# also works but INT matches its documented handling.
+KillSignal=SIGINT
+
+# Long enough for an in-flight download to finish streaming; after that the
+# client has to retry anyway.
+TimeoutStopSec=30
+
+Restart=on-failure
+RestartSec=5s
+# Give up after 5 failures in 5 minutes rather than restart-looping forever on
+# a configuration error.
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slipstream
+
+# --- Hardening -------------------------------------------------------------
+# The app needs to write only its own data directory, spawn ffmpeg and yt-dlp,
+# and make outbound HTTPS requests. Everything else is closed off.
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+
+# ProtectSystem=strict makes everything read-only, so the data tree has to be
+# granted back explicitly. This is the only writable path.
+ReadWritePaths=@INSTALL_DIR@/data
+
+# IPv4/IPv6 and unix sockets. AF_NETLINK is not needed, and excluding it blocks
+# a class of local reconnaissance.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# MemoryDenyWriteExecute is deliberately NOT set: CPython's ctypes and some
+# compiled wheels map writable-executable pages, and enabling it makes the
+# interpreter fail at import time.
+
+# @privileged and @obsolete cover the syscalls a media downloader never needs.
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @obsolete @resources
+SystemCallArchitectures=native
+
+# ffmpeg is memory-hungry on 4K muxes; a ceiling keeps one job from triggering
+# the kernel OOM killer against the rest of the host. Raise it on a large box.
+MemoryMax=2G
+# Soft CPU ceiling: ffmpeg will use every core otherwise.
+CPUQuota=200%
+
+# yt-dlp forks ffmpeg, which forks its own children, so the limit cannot be
+# tight. This stops a runaway loop rather than normal operation.
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

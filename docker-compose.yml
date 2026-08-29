@@ -1,0 +1,86 @@
+# ---------------------------------------------------------------------------
+# Slipstream — base compose file.
+#
+# Single-origin by design: this one container serves both the SPA and /api on
+# port 8000. That is enough for a LAN or localhost deployment.
+#
+# For a public deployment add TLS and a reverse proxy:
+#   docker compose -f docker-compose.yml -f docker-compose.ubuntu.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.oracle.yml up -d
+#
+# For local development with hot reload:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ---------------------------------------------------------------------------
+
+name: slipstream
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: slipstream:0.1.0
+    container_name: slipstream
+    restart: unless-stopped
+
+    # Published on loopback only. The base file has no TLS, so binding to
+    # 0.0.0.0 would expose session cookies over plain HTTP. Override the
+    # mapping deliberately (or use a proxy overlay) to reach it from elsewhere.
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    env_file:
+      - path: .env
+        required: false
+
+    environment:
+      ENVIRONMENT: production
+      # Required in production. Set it in .env; the entrypoint refuses to
+      # start without it rather than silently generating a per-boot key that
+      # would invalidate every session on restart.
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see .env.example}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      DOMAIN: ${DOMAIN:-localhost}
+      # No proxy in front of the app in this file, so forwarded headers must
+      # not be trusted: a client could otherwise spoof its IP past the limits.
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
+      LOG_JSON: ${LOG_JSON:-true}
+
+    volumes:
+      # Database, logs, and in-flight downloads. A named volume avoids the
+      # host-uid ownership problem a bind mount creates for the unprivileged
+      # container user.
+      - slipstream-data:/app/data
+
+    tmpfs:
+      # yt-dlp and ffmpeg write scratch files here; keeping it off the data
+      # volume means a crashed job leaves nothing behind after a restart.
+      - /tmp:size=1g,mode=1777
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+    # ffmpeg is CPU-hungry; without a ceiling a couple of 4K muxes can starve
+    # everything else on a small VPS.
+    deploy:
+      resources:
+        limits:
+          cpus: ${CPU_LIMIT:-2.0}
+          memory: ${MEMORY_LIMIT:-2g}
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  slipstream-data:
+    name: slipstream-data

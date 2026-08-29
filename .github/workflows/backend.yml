@@ -1,0 +1,141 @@
+# ---------------------------------------------------------------------------
+# Backend CI — the same commands CONTRIBUTING.md asks contributors to run.
+# ---------------------------------------------------------------------------
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run on the same ref.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor declared in pyproject.toml; 3.12 is what the Docker
+        # image ships. Both have to stay green.
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install FFmpeg
+        # Some tests exercise the muxing and MP3 paths, which report themselves
+        # unavailable without it. Installing it means CI checks the real
+        # behaviour rather than the degraded one.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Tests
+        env:
+          ENVIRONMENT: test
+          # Fixed value so the suite is not affected by key rotation between
+          # runs. This is a test key, not a deployment secret.
+          SECRET_KEY: ci-test-key-not-a-secret
+        run: pytest -q
+
+      - name: CLI smoke test
+        # `verify` touches the database, the admin seed, and the toolchain
+        # check — the paths an operator hits first and that unit tests mock out.
+        env:
+          ENVIRONMENT: test
+          SECRET_KEY: ci-test-key-not-a-secret
+        run: python -m app.cli verify
+
+  startup:
+    name: Boot and serve
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start the app
+        env:
+          ENVIRONMENT: production
+          SECRET_KEY: ci-startup-key-not-a-secret
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          echo $! > /tmp/slipstream.pid
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/api/health/ready >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Check the API responds
+        run: |
+          set -e
+          curl -fsS http://127.0.0.1:8000/api/health | tee /dev/stderr | grep -q status
+          curl -fsS http://127.0.0.1:8000/api/config >/dev/null
+          curl -fsS http://127.0.0.1:8000/api/media/platforms >/dev/null
+
+      - name: Check admin endpoints reject anonymous callers
+        # A regression that opens the admin API is the worst failure this
+        # project could ship, so it is asserted explicitly rather than left to
+        # the unit tests.
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/admin/stats)
+          echo "GET /api/admin/stats -> $code"
+          test "$code" = "401" || test "$code" = "403"
+
+      - name: Stop the app
+        if: always()
+        run: kill "$(cat /tmp/slipstream.pid)" || true

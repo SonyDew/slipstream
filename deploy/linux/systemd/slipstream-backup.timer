@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Slipstream — nightly backup timer.
+#
+#   sudo systemctl enable --now slipstream-backup.timer
+#   systemctl list-timers slipstream-backup.timer
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Nightly Slipstream backup
+Requires=slipstream-backup.service
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+
+# Avoids every install from this repo hitting disk at the same second.
+RandomizedDelaySec=1800
+
+# Runs the missed backup after a reboot instead of skipping the night. On a
+# machine that is not always on, this is the difference between a working
+# backup schedule and none.
+Persistent=true
+
+Unit=slipstream-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,29 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/OWNER/REPO/security/advisories/new
+    about: >-
+      Do not open a public issue. Report privately through a security advisory so
+      a fix can ship before the details are public. See SECURITY.md.
+
+  - name: Request for an access-control bypass
+    url: https://github.com/OWNER/REPO/blob/main/CONTRIBUTING.md
+    about: >-
+      Requests to download DRM-protected, paywalled, private, age-gated or
+      login-required media will be closed. Slipstream downloads publicly
+      accessible media only and circumvents nothing. This is not negotiable.
+
+  - name: Deployment and setup help
+    url: https://github.com/OWNER/REPO/blob/main/docs/TROUBLESHOOTING.md
+    about: >-
+      Check the troubleshooting guide first. Most setup problems are ffmpeg not
+      being on PATH, a missing SECRET_KEY, or data/ not being writable by the
+      service user.
+
+  - name: A site stopped working
+    url: https://github.com/yt-dlp/yt-dlp/issues
+    about: >-
+      Extraction is yt-dlp's job. If a platform changed its page structure, the
+      fix belongs upstream — update yt-dlp first (docs/UPDATES.md) and report it
+      there if that does not help.

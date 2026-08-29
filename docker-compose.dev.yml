@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------------------
+# Slipstream — development overlay.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Backend on :8000 with autoreload, Vite dev server on :5173 with HMR.
+# Use http://localhost:5173 while developing; Vite proxies /api to the backend.
+# ---------------------------------------------------------------------------
+
+services:
+  app:
+    build:
+      target: runtime
+    image: slipstream:dev
+    container_name: slipstream-dev
+
+    environment:
+      ENVIRONMENT: development
+      # Development generates a key per boot if none is set, which logs you out
+      # on every reload. A fixed throwaway value keeps sessions across restarts.
+      # It is not a secret and must never appear in a real deployment.
+      SECRET_KEY: dev-only-not-a-secret-change-for-any-real-deployment
+      LOG_LEVEL: DEBUG
+      LOG_JSON: "false"
+      APP_URL: http://localhost:5173
+      # Vite serves the app in dev, so the container must accept its origin.
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+
+    # Root inside the container so a bind-mounted ./data is writable whatever
+    # the host uid happens to be. Acceptable for local development only.
+    user: root
+
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    # --reload watches the bind mount. Overrides the entrypoint's serve branch,
+    # which is deliberately production-shaped.
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/backend/app
+
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+
+  web:
+    image: node:20-bookworm-slim
+    container_name: slipstream-web-dev
+    working_dir: /app
+    depends_on:
+      - app
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      # Read by frontend/vite.config.ts. Must be the backend service name on
+      # the compose network: inside this container localhost is Node itself.
+      VITE_API_TARGET: http://app:8000
+    volumes:
+      - ./frontend:/app
+      # Keeps the container's Linux node_modules out of the host tree, so a
+      # host-side `npm install` on Windows or macOS is not clobbered by
+      # platform-specific binaries.
+      - slipstream-node-modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+volumes:
+  slipstream-node-modules:
+    name: slipstream-node-modules

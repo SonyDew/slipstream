@@ -1,0 +1,77 @@
+name: Feature request
+description: Suggest something Slipstream should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the "Scope: what will not be merged" section of `CONTRIBUTING.md`
+        first. Requests to reach media behind DRM, a paywall, a login, a private
+        account, an age gate or a CAPTCHA are closed without discussion, as are
+        mass-scraping features. That boundary is what the project is, not a
+        limitation waiting to be lifted.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: >-
+            This does not involve accessing media that is not publicly
+            accessible, and does not involve handling anyone's credentials.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: >-
+        Describe the situation you are in, not the implementation you have in
+        mind. What are you trying to do that is currently awkward or impossible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area
+      options:
+        - Media analysis and format selection
+        - Downloading, job queue, progress
+        - Accounts, sessions, authentication
+        - Admin panel
+        - Frontend / UI
+        - Deployment, Docker, scripts
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: honesty
+    attributes:
+      label: How it interacts with the honesty invariants
+      description: >-
+        Slipstream never offers a video rung the source does not have, and never
+        advertises an MP3 bitrate above the source. If your request touches
+        format lists, quality options or what the UI promises, explain how it
+        stays truthful about what will actually be delivered. Write "n/a" if it
+        does not apply.
+      placeholder: 'n/a'
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: >-
+        Including doing it outside Slipstream. A one-off yt-dlp command is
+        sometimes the right answer and that is a legitimate conclusion.

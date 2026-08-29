@@ -1,0 +1,100 @@
+# ---------------------------------------------------------------------------
+# Slipstream — Oracle Cloud Always-Free ARM64 overlay.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.oracle.yml up -d
+#
+# Targets the Ampere A1 shape (aarch64). The free tier allows 4 OCPU / 24 GB
+# across instances; this file assumes a 2 OCPU / 12 GB slice and is deliberately
+# conservative with CPU, because ffmpeg will happily consume every core and
+# Oracle throttles sustained use on shared shapes.
+#
+# Two Oracle-specific gotchas, both covered in docs/ORACLE.md:
+#   1. The VCN security list must allow 80/443 in addition to the OS firewall.
+#   2. Oracle Linux images ship iptables rules that reject everything but SSH,
+#      and those rules survive reboots — opening the VCN alone is not enough.
+# ---------------------------------------------------------------------------
+
+services:
+  app:
+    build:
+      platforms:
+        - linux/arm64
+    # Same reasoning as the Ubuntu overlay: nginx is the only ingress.
+    ports: !override []
+
+    expose:
+      - "8000"
+
+    environment:
+      APP_URL: ${APP_URL:?APP_URL is required, e.g. https://slipstream.example.com}
+      DOMAIN: ${DOMAIN:?DOMAIN is required, e.g. slipstream.example.com}
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXY_COUNT: "1"
+      # Ampere cores are plentiful but bandwidth-limited on the free tier, and
+      # concurrent 4K muxes saturate the outbound link long before the CPU.
+      MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS:-2}
+      # The free tier's boot volume is 50 GB total. A 2 GiB ceiling per file
+      # with a short TTL keeps the temp tree from filling the disk, which would
+      # take the database down with it.
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-2147483648}
+      TEMP_FILE_TTL: ${TEMP_FILE_TTL:-3600}
+
+    deploy:
+      resources:
+        limits:
+          cpus: ${CPU_LIMIT:-1.5}
+          memory: ${MEMORY_LIMIT:-3g}
+
+    tmpfs:
+      # Smaller than the base file: tmpfs is RAM, and 12 GB shared with the
+      # page cache does not leave room for a 1 GB scratch area under load.
+      - /tmp:size=512m,mode=1777
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: slipstream-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    environment:
+      SLIPSTREAM_DOMAIN: ${DOMAIN}
+      SLIPSTREAM_UPSTREAM: app:8000
+
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${CERT_DIR:-./deploy/oracle/certs}:/etc/nginx/certs:ro
+      - ./deploy/oracle/acme-challenge:/var/www/acme-challenge:ro
+      - slipstream-nginx-cache:/var/cache/nginx
+
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  slipstream-nginx-cache:
+    name: slipstream-nginx-cache

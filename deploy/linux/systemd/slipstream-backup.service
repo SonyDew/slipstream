@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Slipstream — nightly backup service.
+#
+# Installed alongside slipstream.service. Placeholders are substituted the same
+# way (see scripts/linux/install.sh):
+#   @INSTALL_DIR@   installation root
+#   @SERVICE_USER@  system account
+#
+# Enable with:
+#   sudo systemctl enable --now slipstream-backup.timer
+#
+# Runs while the app is live. backup.sh uses SQLite's online backup API, so no
+# downtime is needed and the snapshot is consistent.
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Slipstream database backup
+Documentation=file://@INSTALL_DIR@/docs/BACKUPS.md
+# Not After=slipstream.service: the backup is valid whether or not the app is
+# running, and ordering on it would skip the run when the app is stopped.
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=@INSTALL_DIR@
+
+# root because backup.sh reads .env (mode 600) and writes to the backups
+# directory. It drops to the service user for the database read itself.
+Environment=INSTALL_DIR=@INSTALL_DIR@
+Environment=KEEP=14
+ExecStart=@INSTALL_DIR@/scripts/linux/backup.sh
+
+# A backup that hangs must not block the timer forever.
+TimeoutStartSec=600
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slipstream-backup
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=@INSTALL_DIR@
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,82 @@
+# ---------------------------------------------------------------------------
+# Slipstream — Docker build context exclusions
+#
+# The build context is the repo root: the frontend stage needs frontend/, the
+# runtime stage needs backend/. Everything below is either generated inside
+# the image, machine-local, or user data that must not be baked into a layer.
+# ---------------------------------------------------------------------------
+
+# --- Runtime / user data (never in an image) -------------------------------
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Secrets ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# --- Host virtualenvs and dependency trees ---------------------------------
+# These are platform-specific; the image installs its own. Copying a Windows
+# .venv or an x86 node_modules into an arm64 image produces broken binaries.
+**/.venv/
+**/venv/
+**/node_modules/
+
+# --- Build output (the frontend stage produces its own dist) ---------------
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+**/*.tsbuildinfo
+build/
+dist/
+*.egg-info/
+
+# --- Caches ---------------------------------------------------------------
+**/__pycache__/
+**/*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.eslintcache
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.hypothesis/
+
+# --- Tests and dev-only tooling -------------------------------------------
+backend/tests/
+scripts/test_extractors.py
+.tools/
+
+# --- VCS, CI, editors, docs ------------------------------------------------
+.git/
+.gitignore
+.gitattributes
+.github/
+.claude/
+.idea/
+.vscode/
+docs/
+deploy/
+nginx/
+*.md
+!README.md
+
+# --- Logs and stray artefacts ---------------------------------------------
+*.log
+logs/
+tmp/
+temp/
+an.json
+*.analyze.json

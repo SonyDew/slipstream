@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# Slipstream — monthly yt-dlp refresh timer.
+#
+#   sudo systemctl enable --now slipstream-ytdlp-update.timer
+#
+# Weekly rather than monthly is reasonable if you download from fast-moving
+# platforms; change OnCalendar to weekly.
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Monthly yt-dlp refresh for Slipstream
+Requires=slipstream-ytdlp-update.service
+
+[Timer]
+# First Sunday-ish of the month, early morning. The restart drops in-flight
+# downloads, so it runs when the instance is least likely to be busy.
+OnCalendar=*-*-01 04:00:00
+
+RandomizedDelaySec=3600
+Persistent=true
+
+Unit=slipstream-ytdlp-update.service
+
+[Install]
+WantedBy=timers.target

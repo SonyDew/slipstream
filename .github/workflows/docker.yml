@@ -1,0 +1,170 @@
+# ---------------------------------------------------------------------------
+# Docker — build for both architectures, smoke-test the amd64 image, and push
+# to GHCR on a tag.
+# ---------------------------------------------------------------------------
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'docker/**'
+      - 'docker-compose*.yml'
+      - '.dockerignore'
+      - '.github/workflows/docker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        # arm64 is built under emulation here. It is slow — mostly the frontend
+        # stage — but it catches the wheel-availability problems that only show
+        # up on aarch64, which is the whole point of testing it.
+        if: matrix.platform == 'linux/arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: ${{ matrix.platform == 'linux/amd64' }}
+          tags: slipstream:ci
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Smoke-test the image
+        # Only on the native architecture: an emulated container is slow enough
+        # that the health check would time out for reasons unrelated to the code.
+        if: matrix.platform == 'linux/amd64'
+        run: |
+          set -e
+          docker run -d --name slipstream-ci \
+            -e SECRET_KEY=ci-smoke-key-not-a-secret \
+            -p 8000:8000 \
+            slipstream:ci
+
+          for _ in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8000/api/health/ready >/dev/null 2>&1; then
+              ready=1; break
+            fi
+            sleep 2
+          done
+
+          if [ "${ready:-0}" != "1" ]; then
+            echo "::error::the container never became ready"
+            docker logs slipstream-ci
+            exit 1
+          fi
+
+          echo "--- health ---"
+          curl -fsS http://127.0.0.1:8000/api/health
+
+          echo "--- SPA is served ---"
+          curl -fsS -o /dev/null -w 'GET / -> %{http_code} %{content_type}\n' \
+            http://127.0.0.1:8000/
+
+          echo "--- a missing asset is a real 404, not the SPA shell ---"
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/assets/nope.js)
+          echo "GET /assets/nope.js -> $code"
+          test "$code" = "404"
+
+          echo "--- admin API rejects anonymous callers ---"
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/admin/stats)
+          echo "GET /api/admin/stats -> $code"
+          test "$code" = "401" || test "$code" = "403"
+
+          echo "--- ffmpeg is present in the image ---"
+          docker exec slipstream-ci ffmpeg -version | head -1
+
+          echo "--- runs as an unprivileged user ---"
+          uid=$(docker exec slipstream-ci id -u)
+          echo "uid: $uid"
+          test "$uid" != "0"
+
+      - name: Container logs
+        if: failure() && matrix.platform == 'linux/amd64'
+        run: docker logs slipstream-ci || true
+
+      - name: Clean up
+        if: always() && matrix.platform == 'linux/amd64'
+        run: docker rm -f slipstream-ci || true
+
+  push:
+    name: Push to GHCR
+    # Only on a version tag: main should not overwrite a published :latest that
+    # operators are pulling.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push a manifest list
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=gha,scope=linux/amd64
+            type=gha,scope=linux/arm64

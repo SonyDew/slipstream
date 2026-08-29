@@ -1,0 +1,150 @@
+# ---------------------------------------------------------------------------
+# Slipstream — server blocks (TLS).
+#
+# Rendered by the nginx:alpine entrypoint: the placeholders below are
+# substituted from the container environment into /etc/nginx/conf.d/.
+#   SLIPSTREAM_DOMAIN    public hostname
+#   SLIPSTREAM_UPSTREAM  host:port of uvicorn (e.g. app:8000)
+#
+# Requires /etc/nginx/certs/{fullchain.pem,privkey.pem}. Without them nginx
+# will not start — mount nginx/templates-http instead for a plain-HTTP LAN
+# deployment.
+# ---------------------------------------------------------------------------
+
+upstream slipstream_app {
+    server ${SLIPSTREAM_UPSTREAM} max_fails=3 fail_timeout=15s;
+    # Reuses connections to uvicorn. Without it every request pays a fresh TCP
+    # handshake, which is noticeable given how often the admin job monitor polls.
+    keepalive 32;
+}
+
+# --- Port 80: ACME + redirect ----------------------------------------------
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name ${SLIPSTREAM_DOMAIN};
+
+    # Served over HTTP on purpose: the ACME http-01 challenge cannot use the
+    # certificate it is trying to obtain.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme-challenge;
+        default_type "text/plain";
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# --- Port 443: the application ---------------------------------------------
+server {
+    listen      443 ssl;
+    listen      [::]:443 ssl;
+    http2       on;
+    server_name ${SLIPSTREAM_DOMAIN};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_ciphers               ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       1d;
+    ssl_session_tickets       off;
+    ssl_stapling              on;
+    ssl_stapling_verify       on;
+
+    # The session cookie is Secure, so this instance is HTTPS-only anyway.
+    # max-age is one year without `preload`: getting onto the preload list is
+    # easy and getting off it takes months.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    limit_conn slipstream_conn 20;
+
+    # Absolute cap on any single response. Downloads can be large; a request
+    # body cap does not apply to them (see client_max_body_size in nginx.conf).
+    proxy_max_temp_file_size 0;
+
+    root /dev/null;
+
+    # --- Authentication ---------------------------------------------------
+    # Tighter zone than the rest of the API to slow credential stuffing. burst
+    # without nodelay queues rather than rejecting, so a legitimate retry after
+    # a typo is not turned into a 429.
+    location ~ ^/api/auth/(login|register|change-password)$ {
+        limit_req zone=slipstream_auth burst=5;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+    }
+
+    # --- File streaming -----------------------------------------------------
+    # GET /api/jobs/{id}/file is the only endpoint that returns media bytes.
+    # Buffering off so they reach the browser as they are produced: with
+    # buffering on, a 2 GiB response means a 2 GiB spool on the proxy and no
+    # visible progress until it completes. The long timeouts cover a slow
+    # client on a large file.
+    location ~ ^/api/jobs/[^/]+/file$ {
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass          http://slipstream_app;
+        proxy_buffering     off;
+        proxy_request_buffering off;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+        limit_req           zone=slipstream_api burst=20 nodelay;
+        # Resumable downloads: the app serves Range requests, and without this
+        # the unbuffered proxy would strip Accept-Ranges.
+        proxy_force_ranges  on;
+    }
+
+    # --- Health checks -----------------------------------------------------
+    # Unlimited and unlogged: an orchestrator polling every 30s should not
+    # consume a rate-limit budget or fill the access log.
+    location ^~ /api/health {
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass  http://slipstream_app;
+        access_log  off;
+    }
+
+    # --- API ----------------------------------------------------------------
+    location ^~ /api/ {
+        limit_req zone=slipstream_api burst=20 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+    }
+
+    # --- Hashed static assets ----------------------------------------------
+    # Filenames contain a content hash, so they are immutable and can be cached
+    # for a year. The app returns a real 404 for a missing asset rather than the
+    # SPA shell, so a stale reference surfaces as a missing file instead of a
+    # JavaScript parse error.
+    #
+    # The snippets are re-included because any add_header in a location
+    # replaces the entire inherited set: without this line the Cache-Control
+    # below would silently drop the CSP and HSTS from every asset response.
+    location ^~ /assets/ {
+        limit_req zone=slipstream_static burst=100 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        access_log off;
+    }
+
+    # --- SPA ----------------------------------------------------------------
+    # Every other path is a deep link handled by index.html. It must not be
+    # cached: a stale shell would reference asset hashes that no longer exist
+    # after a deploy.
+    location / {
+        limit_req zone=slipstream_static burst=100 nodelay;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_pass http://slipstream_app;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+    }
+}

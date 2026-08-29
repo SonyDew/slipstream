@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# Slipstream backend runtime dependencies
+# Pinned with compatible-release specifiers so ARM64 wheels resolve cleanly.
+# ---------------------------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+SQLAlchemy==2.0.36
+alembic==1.14.0
+argon2-cffi==23.1.0
+bcrypt==4.2.1
+python-multipart==0.0.20
+itsdangerous==2.2.0
+# yt-dlp is pinned for reproducible builds, but it is the one dependency that
+# MUST be refreshed regularly: platforms change their players constantly and a
+# months-old release will simply stop extracting. Every update script bumps it,
+# and docs/UPDATES.md explains the cadence.
+yt-dlp==2026.8.19
+# Browser TLS impersonation used by Vimeo/Facebook and other protected public
+# pages. This is the implementation recommended by yt-dlp upstream.
+curl-cffi==0.14.0
+httpx==0.28.1
+playwright==1.55.0
+email-validator==2.2.0

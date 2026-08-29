@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Slipstream — monthly yt-dlp refresh.
+#
+# Placeholders substituted by scripts/linux/install.sh:
+#   @INSTALL_DIR@, @SERVICE_USER@
+#
+# Enable with:
+#   sudo systemctl enable --now slipstream-ytdlp-update.timer
+#
+# This is the one piece of automated maintenance that matters. Sites change
+# their players continuously, and a months-old yt-dlp simply stops extracting.
+# The update restarts the app, because the extractor is loaded at import time.
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Refresh yt-dlp and restart Slipstream
+Documentation=file://@INSTALL_DIR@/docs/UPDATES.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=@INSTALL_DIR@
+
+Environment=INSTALL_DIR=@INSTALL_DIR@
+Environment=SERVICE_USER=@SERVICE_USER@
+
+# --ytdlp-only deliberately: an unattended job should not pull new source,
+# rebuild the frontend, or run migrations. Those are operator decisions.
+ExecStart=@INSTALL_DIR@/scripts/linux/update.sh --ytdlp-only
+
+TimeoutStartSec=900
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slipstream-ytdlp
+
+[Install]
+WantedBy=multi-user.target

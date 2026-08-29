@@ -1,0 +1,66 @@
+[project]
+name = "slipstream-backend"
+version = "0.1.0"
+description = "Slipstream — self-hosted universal media downloader (backend)"
+readme = "../README.md"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# ---------------------------------------------------------------------------
+# Ruff — lint + format
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "TID", "RUF", "S"]
+ignore = [
+  "S101",   # assert — used heavily in tests
+  "B008",   # FastAPI Depends() in defaults is the documented idiom
+  "S104",   # binding 0.0.0.0 is intentional inside containers
+  "RUF001", # ambiguous unicode in user-facing strings
+  "RUF002",
+  "RUF003",
+  "SIM108", # ternary rewrites hurt readability here
+  "UP038",  # isinstance(x, (A, B)) reads better than the PEP 604 union form
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S311", "E501"]
+"app/core/ssrf.py" = ["S104"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+ignore_missing_imports = true
+follow_imports = "silent"
+disallow_untyped_defs = false
+check_untyped_defs = true
+exclude = "(alembic|tests)/"
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+  "live: hits real third-party sites; excluded from CI (run with -m live)",
+]

@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Slipstream — Ubuntu x86_64 VPS overlay.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ubuntu.yml up -d
+#
+# Adds nginx in front of the app: TLS termination, security headers, rate-limit
+# zones, and body/timeout limits sized for large downloads. The app container
+# stops publishing a host port — nginx is the only way in.
+#
+# Certificates: put fullchain.pem and privkey.pem in ./deploy/ubuntu/certs/,
+# or point CERT_DIR at your live Let's Encrypt directory. See docs/UBUNTU.md.
+# ---------------------------------------------------------------------------
+
+services:
+  app:
+    # Reachable only on the compose network. Overrides the base file's
+    # loopback publish; without this an operator could still hit the app over
+    # plain HTTP and hand out session cookies without TLS.
+    # The !override tag needs Docker Compose 2.24+; on older versions delete
+    # the ports block from docker-compose.yml instead.
+    ports: !override []
+
+    expose:
+      - "8000"
+
+    environment:
+      APP_URL: ${APP_URL:?APP_URL is required, e.g. https://slipstream.example.com}
+      DOMAIN: ${DOMAIN:?DOMAIN is required, e.g. slipstream.example.com}
+      COOKIE_SECURE: "true"
+      # Exactly one proxy (nginx) sets X-Forwarded-For. Anything higher would
+      # let a client prepend its own value and defeat per-IP rate limiting.
+      TRUSTED_PROXY_COUNT: "1"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: slipstream-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    environment:
+      SLIPSTREAM_DOMAIN: ${DOMAIN}
+      SLIPSTREAM_UPSTREAM: app:8000
+
+    volumes:
+      # nginx:alpine runs everything in /etc/nginx/templates through envsubst
+      # at startup, so the server_name and upstream come from the environment
+      # instead of being baked into the image.
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${CERT_DIR:-./deploy/ubuntu/certs}:/etc/nginx/certs:ro
+      - ./deploy/ubuntu/acme-challenge:/var/www/acme-challenge:ro
+      - slipstream-nginx-cache:/var/cache/nginx
+
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  slipstream-nginx-cache:
+    name: slipstream-nginx-cache
