@@ -39,9 +39,9 @@ jobs:
         node-version: ['20', '22']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -93,7 +93,7 @@ jobs:
       - name: Upload the bundle
         # Only from one matrix leg; two identical artifacts would just collide.
         if: matrix.node-version == '20'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: frontend/dist/
