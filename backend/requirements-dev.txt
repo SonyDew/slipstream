@@ -1,6 +1,6 @@
 -r requirements.txt
-pytest==8.3.4
-pytest-asyncio==0.25.0
-ruff==0.8.6
-mypy==1.14.1
-types-requests==2.32.0.20241016
+pytest==9.1.1
+pytest-asyncio==1.4.0
+ruff==0.16.4
+mypy==2.3.1
+types-requests==2.33.0.20260712
